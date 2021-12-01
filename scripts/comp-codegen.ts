@@ -1,5 +1,5 @@
 import * as fs from "fs/promises";
-import { askQuestions, createMessageAndType } from "./cli.js";
+import { askQuestions, createMessageAndType } from "./cli";
 
 const questions = {
   filepath: createMessageAndType({
