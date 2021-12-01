@@ -1,68 +1,66 @@
-import * as fs from "fs";
-import * as process from "process";
-import path, { dirname } from "path";
-import { fileURLToPath } from "url";
-import { cli } from "./cli";
+import * as fs from "fs/promises";
+import { askQuestions, createMessageAndType } from "./cli";
 
-const questions = [
-  {
+const questions = {
+  filepath: createMessageAndType({
     type: "text",
-    name: "filepath",
     message: "What file path  ex) common/Button",
-  },
-  {
+  }),
+  className: createMessageAndType({
     type: "text",
-    name: "classname",
     message: "What class name  ex) Button",
-  },
-  {
+  }),
+  story: createMessageAndType({
     type: "boolean",
-    name: "story",
     message: "Create story(Y/n)",
-  },
-];
+  }),
+};
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const main = async () => {
+const main = async (): Promise<void> => {
   console.log("Code-gen : Create Presentational Component");
 
   // ① 対話処理を使用
-  const answers = await cli(questions);
+  const answers = await askQuestions(questions);
   console.log(answers);
 
   console.log("Start Code Generate...");
-  const from_dir = path.join(__dirname, "../scripts/template/component/");
-  const to_dir = path.join(
-    __dirname,
-    "../src/components/" + answers["filepath"] + "/"
-  );
+  const fromDir = "./scripts/template/component/";
+  const toDir = "./src/components/" + answers.filepath + "/";
 
   // ② フォルダ生成
-  fs.mkdirSync(to_dir, { recursive: true });
+  await fs.mkdir(toDir, { recursive: true });
 
-  // ③ テンプレート生成（脳筋ポイント）
-  let readcomp = fs.readFileSync(from_dir + "index.tsx", "utf-8");
-  readcomp = readcomp.replace(/COMPONENTTEMPLATE/g, answers["classname"]);
-  fs.writeFileSync(to_dir + "index.tsx", readcomp);
+  await Promise.all([
+    (async () => {
+      // ③ テンプレート生成
+      const componentTemplate = await fs.readFile(fromDir + "index.tsx", {
+        encoding: "utf-8",
+      });
+      await fs.writeFile(
+        toDir + "index.tsx",
+        componentTemplate.replace(/COMPONENTTEMPLATE/g, answers.className)
+      );
+    })(),
+    (async () => {
+      // ④ ストーリーテンプレート生成
+      if (answers.story) {
+        const storyTemplate = await fs.readFile(
+          fromDir + "componenttemplate.stories.tsx",
+          {
+            encoding: "utf-8",
+          }
+        );
+        await fs.writeFile(
+          toDir + answers.className.toLowerCase() + ".stories.tsx",
+          storyTemplate
+            .replace(/COMPONENTFILEPATH/g, answers.filepath)
+            .replace(/COMPONENTTEMPLATE/g, answers.className)
+        );
+      }
+    })(),
+  ]);
 
-  // ④ ストーリーテンプレート生成（脳筋ポイント2）
-  if (answers["story"]) {
-    let readstory = fs.readFileSync(
-      from_dir + "componenttemplate.stories.tsx",
-      "utf-8"
-    );
-    readstory = readstory.replace(/COMPONENTFILEPATH/g, answers["filepath"]);
-    readstory = readstory.replace(/COMPONENTTEMPLATE/g, answers["classname"]);
-    fs.writeFileSync(
-      to_dir + answers["classname"].toLowerCase() + ".stories.tsx",
-      readstory
-    );
-  }
-  console.log("Succeded!!");
-  process.exit();
+  console.log("Succeeded!!");
 };
 
-(async () => {
-  await main();
-})();
+main();
