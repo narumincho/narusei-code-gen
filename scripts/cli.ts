@@ -2,68 +2,122 @@
 import * as readline from "readline";
 import * as process from "process";
 
-const reader = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+/**
+ * 質問文と型
+ */
+export type MessageAndType<T extends TypeKey> = {
+  readonly type: T;
+  readonly message: string;
+};
 
-// ④で使用
-const getAnswer = (msg) =>
-  new Promise((res) => reader.question("? " + msg + " > ", res));
+/**
+ * 質問文と型を指定する. 補完を得るためのもの.
+ */
+export const createMessageAndType = <T extends TypeKey>(
+  messageAndType: MessageAndType<T>
+): MessageAndType<T> => {
+  return messageAndType;
+};
 
-// ① 複数の質問を引数に取る
-export const cli = async (questions = []) => {
-  const answers = {};
-  let answer, question;
-  let name, type, message; // ② 各質問の構成要素
-  let result;
+export type TypeKey = "text" | "number" | "boolean";
 
-  // ③ それぞれ質問をしていく
-  for (question of questions) {
-    result = "";
-    ({ name, type, message } = question);
+type TypeKeyToTypeMap = {
+  readonly text: string;
+  readonly number: number;
+  readonly boolean: boolean;
+};
 
-    // ④　ユーザの入力を待ち受ける
-    result = await getAnswer(message);
+/**
+ * ユーザーに複数の質問する
+ * @param questions 質問
+ * @returns ユーザから入力された答え
+ */
+export const askQuestions = async <
+  Questions extends { [key in string]: MessageAndType<TypeKey> }
+>(
+  questions: Questions
+): Promise<{
+  [key in keyof Questions]: TypeKeyToTypeMap[Questions[key]["type"]];
+}> => {
+  const answers: {
+    [key in keyof Questions]?: TypeKeyToTypeMap[TypeKey];
+  } = {};
 
-    // ⑤ typeに合わせて簡単に値のチェックを行う
-    switch (type) {
-      case "text":
-        if (result !== "") {
-          answer = result;
-        } else {
-          console.log("Invalid value");
-        }
-        break;
-
-      case "number":
-        if (result !== "" && parseInt(result)) {
-          answer = parseInt(result);
-        } else {
-          console.log("Invalid value");
-        }
-        break;
-
-      case "boolean":
-        if (result.toLowerCase() === "y" || result.toLowerCase() === "n") {
-          switch (result.toLowerCase()) {
-            case "y":
-              answer = true;
-              break;
-
-            case "n":
-              answer = false;
-              break;
-          }
-        } else {
-          console.log("Invalid value");
-        }
-        break;
-    }
-    // ⑥ answersに追加していく
-    answers[name] = answer;
+  for (const [name, messageAndType] of Object.entries(
+    questions
+  ) as ReadonlyArray<[keyof Questions, MessageAndType<TypeKey>]>) {
+    answers[name] = await askQuestion(messageAndType);
   }
 
-  // ⑦ 返す
-  return answers;
+  return answers as {
+    [key in keyof Questions]: TypeKeyToTypeMap[Questions[key]["type"]];
+  };
+};
+
+/**
+ * ユーザーに質問をする
+ */
+export const askQuestion = async <T extends TypeKey>({
+  message,
+  type,
+}: MessageAndType<T>): Promise<TypeKeyToTypeMap[T]> => {
+  while (true) {
+    const result = await getUserInput(message);
+    const answerResult = userInputToAnswer(type, result);
+    if (answerResult !== undefined) {
+      return answerResult;
+    }
+    console.error("invalid value");
+  }
+};
+
+/**
+ * ユーザーが入力した文字列を受け取る
+ */
+const getUserInput = (message: string): Promise<string> =>
+  new Promise((resolve) => {
+    const reader = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    reader.question("? " + message + " > ", (text) => {
+      reader.close();
+      resolve(text);
+    });
+  });
+
+/**
+ * ユーザーが入力した文字列を解析する
+ */
+const userInputToAnswer = <T extends TypeKey>(
+  typeString: T,
+  result: string
+): TypeKeyToTypeMap[T] | undefined => {
+  switch (typeString) {
+    case "text": {
+      if (result !== "") {
+        return result as TypeKeyToTypeMap[T];
+      }
+      return undefined;
+    }
+
+    case "number": {
+      const value = Number.parseInt(result);
+      if (!Number.isNaN(value)) {
+        return value as TypeKeyToTypeMap[T];
+      }
+      return undefined;
+    }
+
+    case "boolean": {
+      switch (result.trim().toLowerCase()) {
+        case "y":
+          return true as TypeKeyToTypeMap[T];
+
+        case "n":
+          return false as TypeKeyToTypeMap[T];
+      }
+      return undefined;
+    }
+  }
 };
