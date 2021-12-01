@@ -19,9 +19,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "page:codegen": "node ./scripts/page-codegen.mjs",
-    "layout:codegen": "node ./scripts/layout-codegen.mjs",
-    "comp:codegen": "node ./scripts/comp-codegen.mjs"
+    "comp:codegen": "ts-node ./scripts/comp-codegen.ts"
   },
   "eslintConfig": {
     "extends": [
