@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as process from "process";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import { cli } from "./cli.mjs";
+import { cli } from "./cli";
 
 const questions = [
   {
